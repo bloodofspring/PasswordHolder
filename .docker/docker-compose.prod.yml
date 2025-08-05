@@ -1,0 +1,40 @@
+services:
+  bot:
+    image: ${DOCKERHUB_USERNAME}/chatdetective-bot:latest # Используем образ из DockerHub
+    container_name: chatdetective-bot
+    restart: unless-stopped
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - API_KEY=${API_KEY}
+      - WORK_EXAMPLE_FILE_ID_1=${WORK_EXAMPLE_FILE_ID_1}
+      - WORK_EXAMPLE_FILE_ID_2=${WORK_EXAMPLE_FILE_ID_2}
+      - SETUP_INSTRUCTION_FILE_ID=${SETUP_INSTRUCTION_FILE_ID}
+      - DEBUG=${DEBUG}
+      - HEALTHCHECK_PORT=${HEALTHCHECK_PORT}
+      - NOTIFICATION_BOT_TOKEN=${NOTIFICATION_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    depends_on:
+      - db
+    ports:
+      - "${HEALTHCHECK_PORT}:${HEALTHCHECK_PORT}"
+      - "6060:6060"
+    # Все переменные должны пробрасываться через ENV или .env на сервере, secrets не хардкодятся
+    # ENTRYPOINT уже определён в Dockerfile, command не требуется
+
+  db:
+    image: postgres:15-alpine
+    container_name: chatdetective-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5555:5432"
+    volumes:
+      - /var/lib/postgresql/chat_detective_bot:/var/lib/postgresql/data # Данные хранятся на VPS, не в контейнере
+    # Важно: volume должен быть на VPS, чтобы данные не терялись при пересоздании контейнера 

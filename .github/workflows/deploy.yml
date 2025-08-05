@@ -1,0 +1,110 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Send Telegram notification (start)
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.NOTIFICATION_BOT_TOKEN }}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "chat_id": "${{ vars.TELEGRAM_CHAT_ID }}",
+                "text": "🚀 Начинаю деплой...\nРепозиторий: ${{ github.repository }}\nВетка: ${{ github.ref_name }}\nКоммит: ${{ github.sha }}\nАвтор: ${{ github.actor }}"
+              }'
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: .docker/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatdetective-bot:latest
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/ChatDetectiveBot
+            git pull
+            cd /var/www/ChatDetectiveBot/.docker
+            export DB_HOST=${{ vars.DB_HOST }}
+            export DB_PORT=${{ vars.DB_PORT }}
+            export DB_USER=${{ secrets.DB_USER }}
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            export DB_NAME=${{ vars.DB_NAME }}
+            export API_KEY=${{ secrets.API_KEY }}
+            export POSTGRES_USER=${{ secrets.DB_USER }}
+            export POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
+            export POSTGRES_DB=${{ vars.DB_NAME }}
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            export SETUP_INSTRUCTION_FILE_ID=${{ vars.SETUP_INSTRUCTION_FILE_ID }}
+            export WORK_EXAMPLE_FILE_ID_1=${{ vars.WORK_EXAMPLE_FILE_ID_1 }}
+            export WORK_EXAMPLE_FILE_ID_2=${{ vars.WORK_EXAMPLE_FILE_ID_2 }}
+            export DEBUG=${{ vars.DEBUG }}
+            export HEALTHCHECK_PORT=${{ vars.HEALTHCHECK_PORT }}
+            export NOTIFICATION_BOT_TOKEN=${{ secrets.NOTIFICATION_BOT_TOKEN }}
+            export TELEGRAM_CHAT_ID=${{ vars.TELEGRAM_CHAT_ID }}
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d bot
+            docker system prune -f
+      
+      - name: Ping Bot
+        id: pingbot
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            for i in {1..20}; do
+              response=$(curl -s -w "%{http_code}" "http://localhost:${{ vars.HEALTHCHECK_PORT }}/ping?token=${{ secrets.API_KEY }}" -o /dev/null)
+              if [ "$response" != "200" ]; then
+                echo "Attempt $i: Bot is not responding (HTTP code: $response)"
+              else
+                echo "Attempt $i: Bot is responding OK"
+                exit 0
+              fi
+              sleep 3
+            done
+
+            exit 1
+
+      - name: Send Telegram notification (success)
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.NOTIFICATION_BOT_TOKEN }}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "chat_id": "${{ vars.TELEGRAM_CHAT_ID }}",
+                "text": "✅ Деплой завершён успешно!\nРепозиторий: ${{ github.repository }}\nВетка: ${{ github.ref_name }}\nКоммит: ${{ github.sha }}\nАвтор: ${{ github.actor }}"
+              }'
+
+      - name: Send Telegram notification (failure)
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.NOTIFICATION_BOT_TOKEN }}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "chat_id": "${{ vars.TELEGRAM_CHAT_ID }}",
+                "text": "❌ Деплой завершился с ошибкой!\nРепозиторий: ${{ github.repository }}\nВетка: ${{ github.ref_name }}\nКоммит: ${{ github.sha }}\nАвтор: ${{ github.actor }}"
+              }'

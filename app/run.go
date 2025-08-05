@@ -1,12 +1,14 @@
 package main
 
 import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/joho/godotenv"
 	"log"
 	"main/actions"
 	"main/handlers"
 	"os"
+	"strconv"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 )
 
 func connect(debug bool) *tgbotapi.BotAPI {
@@ -24,9 +26,16 @@ func connect(debug bool) *tgbotapi.BotAPI {
 func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	startFilter := func(update tgbotapi.Update) bool { return update.Message.Command() == "start" }
 
+	adminIdStr := os.Getenv("ADMIN_ID")
+	adminId, err := strconv.ParseInt(adminIdStr, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	adminFilter := func(update tgbotapi.Update) bool { return update.Message.From.ID == adminId }
+
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
-		// Place your handlers here
-		handlers.CommandHandler.Product(actions.SayHi{Name: "start-cmd", Client: bot}, []handlers.Filter{startFilter}),
+		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: bot}, []handlers.Filter{startFilter, adminFilter}),
 	}}
 
 	return act

@@ -56,6 +56,7 @@ jobs:
             export API_KEY=${{ secrets.API_KEY }}
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
             export DEBUG=${{ vars.DEBUG }}
+            export ADMIN_ID=${{ vars.ADMIN_ID }}
             export HEALTHCHECK_PORT=${{ vars.HEALTHCHECK_PORT }}
             export NOTIFICATION_BOT_TOKEN=${{ secrets.NOTIFICATION_BOT_TOKEN }}
             export TELEGRAM_CHAT_ID=${{ vars.TELEGRAM_CHAT_ID }}

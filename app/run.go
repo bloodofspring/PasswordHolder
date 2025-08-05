@@ -6,6 +6,7 @@ import (
 	"main/handlers"
 	"os"
 	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
@@ -31,11 +32,13 @@ func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	if err != nil {
 		panic(err)
 	}
+	adminFilter := func(update tgbotapi.Update) bool { return GetMessage(update).Chat.ID == adminId }
 
-	adminFilter := func(update tgbotapi.Update) bool { return update.Message.From.ID == adminId }
+	mainPageCallQuery := func(update tgbotapi.Update) bool { return strings.HasPrefix(update.CallbackQuery.Data, "MP") }
 
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
 		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: bot}, []handlers.Filter{startFilter, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 	}}
 
 	return act

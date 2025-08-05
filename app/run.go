@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"main/actions"
+	"main/database"
 	"main/handlers"
 	"os"
 	"strconv"
@@ -48,6 +49,13 @@ func main() {
 	_ = godotenv.Load()
 
 	debug := os.Getenv("DEBUG") == "true"
+
+	err := database.InitDb()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("Database initialized successfully")
 
 	client := connect(debug)
 	act := getBotActions(*client)

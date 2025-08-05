@@ -2,6 +2,7 @@ package main
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 	"log"
 	"main/actions"
 	"main/handlers"
@@ -32,7 +33,11 @@ func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 }
 
 func main() {
-	client := connect(true)
+	_ = godotenv.Load()
+
+	debug := os.Getenv("DEBUG") == "true"
+
+	client := connect(debug)
 	act := getBotActions(*client)
 
 	updateConfig := tgbotapi.NewUpdate(0)

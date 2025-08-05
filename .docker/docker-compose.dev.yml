@@ -4,7 +4,7 @@ services:
       context: ../app
       dockerfile: ../.docker/Dockerfile
       target: ${DOCKER_TARGET:-dev} # Для dev-режима используем отдельный build target
-    container_name: chatdetective-bot
+    container_name: password-halop-bot
     restart: unless-stopped
     env_file:
       - ../app/.env # В dev-режиме удобно использовать .env
@@ -18,7 +18,7 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: chatdetective-db
+    container_name: password-halop-db
     restart: unless-stopped
     env_file:
       - ../app/.env # Переменные для базы также через .env

@@ -33,7 +33,10 @@ jobs:
           context: ./app
           file: .docker/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatdetective-bot:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/password-halop-bot:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/password-halop-bot:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/password-halop-bot:v1.0.${{ github.run_number }}
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -42,26 +45,21 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /var/www/ChatDetectiveBot
+            cd /var/www/password-halop-bot
             git pull
-            cd /var/www/ChatDetectiveBot/.docker
+            cd /var/www/password-halop-bot/.docker
             export DB_HOST=${{ vars.DB_HOST }}
             export DB_PORT=${{ vars.DB_PORT }}
-            export DB_USER=${{ secrets.DB_USER }}
-            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            export DB_NAME=${{ vars.DB_NAME }}
-            export API_KEY=${{ secrets.API_KEY }}
             export POSTGRES_USER=${{ secrets.DB_USER }}
             export POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
             export POSTGRES_DB=${{ vars.DB_NAME }}
+            export API_KEY=${{ secrets.API_KEY }}
             export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            export SETUP_INSTRUCTION_FILE_ID=${{ vars.SETUP_INSTRUCTION_FILE_ID }}
-            export WORK_EXAMPLE_FILE_ID_1=${{ vars.WORK_EXAMPLE_FILE_ID_1 }}
-            export WORK_EXAMPLE_FILE_ID_2=${{ vars.WORK_EXAMPLE_FILE_ID_2 }}
             export DEBUG=${{ vars.DEBUG }}
             export HEALTHCHECK_PORT=${{ vars.HEALTHCHECK_PORT }}
             export NOTIFICATION_BOT_TOKEN=${{ secrets.NOTIFICATION_BOT_TOKEN }}
             export TELEGRAM_CHAT_ID=${{ vars.TELEGRAM_CHAT_ID }}
+            export TAG=${{ github.sha }} # Используем конкретный тег для деплоя
 
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml down

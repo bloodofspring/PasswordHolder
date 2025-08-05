@@ -1,18 +1,15 @@
 services:
   bot:
-    image: ${DOCKERHUB_USERNAME}/chatdetective-bot:latest # Используем образ из DockerHub
-    container_name: chatdetective-bot
+    image: ${DOCKERHUB_USERNAME}/password-halop-bot:${TAG:-latest} # Используем образ из DockerHub с возможностью указать тег
+    container_name: password-halop-bot
     restart: unless-stopped
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
+      - POSTGRES_HOST=${DB_HOST}
+      - POSTGRES_PORT=${DB_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - API_KEY=${API_KEY}
-      - WORK_EXAMPLE_FILE_ID_1=${WORK_EXAMPLE_FILE_ID_1}
-      - WORK_EXAMPLE_FILE_ID_2=${WORK_EXAMPLE_FILE_ID_2}
-      - SETUP_INSTRUCTION_FILE_ID=${SETUP_INSTRUCTION_FILE_ID}
       - DEBUG=${DEBUG}
       - HEALTHCHECK_PORT=${HEALTHCHECK_PORT}
       - NOTIFICATION_BOT_TOKEN=${NOTIFICATION_BOT_TOKEN}
@@ -27,14 +24,14 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: chatdetective-db
+    container_name: password-halop-db
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5555:5432"
     volumes:
-      - /var/lib/postgresql/chat_detective_bot:/var/lib/postgresql/data # Данные хранятся на VPS, не в контейнере
+      - /var/lib/postgresql/password-halop-bot:/var/lib/postgresql/data # Данные хранятся на VPS, не в контейнере
     # Важно: volume должен быть на VPS, чтобы данные не терялись при пересоздании контейнера 

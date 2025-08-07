@@ -5,6 +5,7 @@ import (
 	"main/actions"
 	"main/database"
 	"main/handlers"
+	"main/controllers"
 	"main/util"
 	"os"
 	"strconv"
@@ -64,8 +65,11 @@ func main() {
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 60
 
+	stepManager := controllers.GetNextStepManager()
+
 	updates := client.GetUpdatesChan(updateConfig)
 	for update := range updates {
 		_ = act.HandleAll(update)
+		controllers.RunStepUpdates(update, stepManager, *client)
 	}
 }

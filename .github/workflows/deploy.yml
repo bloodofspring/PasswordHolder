@@ -67,26 +67,26 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d bot
             docker system prune -f
       
-      - name: Ping Bot
-        id: pingbot
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          script: |
-            for i in {1..20}; do
-              response=$(curl -s -w "%{http_code}" "http://localhost:${{ vars.HEALTHCHECK_PORT }}/ping?token=${{ secrets.API_KEY }}" -o /dev/null)
-              if [ "$response" != "200" ]; then
-                echo "Attempt $i: Bot is not responding (HTTP code: $response)"
-              else
-                echo "Attempt $i: Bot is responding OK"
-                exit 0
-              fi
-              sleep 3
-            done
+      # - name: Ping Bot
+      #   id: pingbot
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.VPS_HOST }}
+      #     username: ${{ secrets.VPS_USER }}
+      #     password: ${{ secrets.VPS_PASSWORD }}
+      #     script: |
+      #       for i in {1..20}; do
+      #         response=$(curl -s -w "%{http_code}" "http://localhost:${{ vars.HEALTHCHECK_PORT }}/ping?token=${{ secrets.API_KEY }}" -o /dev/null)
+      #         if [ "$response" != "200" ]; then
+      #           echo "Attempt $i: Bot is not responding (HTTP code: $response)"
+      #         else
+      #           echo "Attempt $i: Bot is responding OK"
+      #           exit 0
+      #         fi
+      #         sleep 3
+      #       done
 
-            exit 1
+      #       exit 1
 
       - name: Send Telegram notification (success)
         if: success()

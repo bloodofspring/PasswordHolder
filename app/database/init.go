@@ -34,6 +34,7 @@ func InitDb() error {
 	models := []interface{}{
 		&models.Users{},
 		&models.Secrets{},
+		&models.Sessions{},
 	}
 
 	for _, model := range models {

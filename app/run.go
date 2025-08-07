@@ -5,6 +5,7 @@ import (
 	"main/actions"
 	"main/database"
 	"main/handlers"
+	"main/util"
 	"os"
 	"strconv"
 	"strings"
@@ -33,7 +34,7 @@ func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	if err != nil {
 		panic(err)
 	}
-	adminFilter := func(update tgbotapi.Update) bool { return GetMessage(update).Chat.ID == adminId }
+	adminFilter := func(update tgbotapi.Update) bool { return util.GetMessage(update).Chat.ID == adminId }
 
 	mainPageCallQuery := func(update tgbotapi.Update) bool { return strings.HasPrefix(update.CallbackQuery.Data, "MP") }
 

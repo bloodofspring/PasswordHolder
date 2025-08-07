@@ -60,12 +60,12 @@ jobs:
             export HEALTHCHECK_PORT=${{ vars.HEALTHCHECK_PORT }}
             export NOTIFICATION_BOT_TOKEN=${{ secrets.NOTIFICATION_BOT_TOKEN }}
             export TELEGRAM_CHAT_ID=${{ vars.TELEGRAM_CHAT_ID }}
-            export TAG=${{ github.sha }} # Используем конкретный тег для деплоя
+            export TAG=${{ github.sha }}
 
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d bot
-            docker system prune -f
+            docker compose -p password-holder -f docker-compose.prod.yml pull
+            docker compose -p password-holder -f docker-compose.prod.yml down
+            docker compose -p password-holder -f docker-compose.prod.yml up -d bot
+            docker system prune -f --filter "label=com.docker.compose.project=password-holder"
       
       # - name: Ping Bot
       #   id: pingbot

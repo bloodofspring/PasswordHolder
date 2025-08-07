@@ -3,12 +3,14 @@ package main
 import (
 	"log"
 	"main/actions"
+	"main/controllers"
 	"main/database"
 	"main/handlers"
 	"main/util"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
@@ -64,8 +66,21 @@ func main() {
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 60
 
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			err := controllers.DeleteOldSessions()
+			if err != nil {
+				log.Println("Error deleting old sessions: ", err)
+			}
+		}
+	}()
+
+	stepManager := controllers.GetNextStepManager()
+
 	updates := client.GetUpdatesChan(updateConfig)
 	for update := range updates {
 		_ = act.HandleAll(update)
+		controllers.RunStepUpdates(update, stepManager, *client)
 	}
 }

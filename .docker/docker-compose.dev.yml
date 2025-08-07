@@ -23,7 +23,7 @@ services:
     env_file:
       - .env # Переменные для базы также через .env
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${OUTSIDE_POSTGRES_PORT}:5432"
     volumes:
       - ../pgdata:/var/lib/postgresql/data
 

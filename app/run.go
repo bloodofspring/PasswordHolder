@@ -1,12 +1,17 @@
 package main
 
 import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/joho/godotenv"
 	"log"
 	"main/actions"
+	"main/database"
 	"main/handlers"
+	"main/util"
 	"os"
+	"strconv"
+	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 )
 
 func connect(debug bool) *tgbotapi.BotAPI {
@@ -24,9 +29,18 @@ func connect(debug bool) *tgbotapi.BotAPI {
 func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	startFilter := func(update tgbotapi.Update) bool { return update.Message.Command() == "start" }
 
+	adminIdStr := os.Getenv("ADMIN_ID")
+	adminId, err := strconv.ParseInt(adminIdStr, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	adminFilter := func(update tgbotapi.Update) bool { return util.GetMessage(update).Chat.ID == adminId }
+
+	mainPageCallQuery := func(update tgbotapi.Update) bool { return strings.HasPrefix(update.CallbackQuery.Data, "MP") }
+
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
-		// Place your handlers here
-		handlers.CommandHandler.Product(actions.SayHi{Name: "start-cmd", Client: bot}, []handlers.Filter{startFilter}),
+		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: bot}, []handlers.Filter{startFilter, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 	}}
 
 	return act
@@ -36,6 +50,13 @@ func main() {
 	_ = godotenv.Load()
 
 	debug := os.Getenv("DEBUG") == "true"
+
+	err := database.InitDb()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("Database initialized successfully")
 
 	client := connect(debug)
 	act := getBotActions(*client)

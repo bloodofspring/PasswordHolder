@@ -43,7 +43,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /var/www/password-halop-bot
             git pull
@@ -73,7 +73,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             for i in {1..20}; do
               response=$(curl -s -w "%{http_code}" "http://localhost:${{ vars.HEALTHCHECK_PORT }}/ping?token=${{ secrets.API_KEY }}" -o /dev/null)

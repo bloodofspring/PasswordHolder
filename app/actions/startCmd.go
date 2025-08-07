@@ -84,6 +84,12 @@ func (m MainPage) main(update tgbotapi.Update) error {
 		return m.AskPassword(update)
 	}
 
+	session.UpdatedAt = time.Now().Unix()
+	_, err = database.GetDB().Model(session).WherePK().Update()
+	if err != nil {
+		return err
+	}
+
 	return m.MainPage(update, session)
 }
 

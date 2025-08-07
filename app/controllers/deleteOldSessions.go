@@ -6,20 +6,9 @@ import (
 )
 
 func DeleteOldSessions() error {
-	var oldSessions []*models.Sessions
-	err := database.GetDB().Model(&oldSessions).
+	_, err := database.GetDB().Model(&models.Sessions{}).
 		Where("updated_at + reset_time_interval < extract(epoch from now())").
-		Select()
-	if err != nil {
-		return err
-	}
+		Delete()
 
-	for _, session := range oldSessions {
-		_, err := database.GetDB().Model(session).Delete()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }

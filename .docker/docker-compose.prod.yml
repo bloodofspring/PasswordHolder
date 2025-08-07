@@ -19,7 +19,7 @@ services:
       - db
     ports:
       - "${HEALTHCHECK_PORT}:${HEALTHCHECK_PORT}"
-      - "6060:6060"
+      # - "6060:6060"
     # Все переменные должны пробрасываться через ENV или .env на сервере, secrets не хардкодятся
     # ENTRYPOINT уже определён в Dockerfile, command не требуется
 

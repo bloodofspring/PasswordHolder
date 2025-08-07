@@ -50,6 +50,7 @@ jobs:
             cd /var/www/password-halop-bot/.docker
             export DB_HOST=${{ vars.DB_HOST }}
             export DB_PORT=${{ vars.DB_PORT }}
+            export PUBLIC_DB_PORT=${{ vars.PUBLIC_DB_PORT }}
             export POSTGRES_USER=${{ secrets.DB_USER }}
             export POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
             export POSTGRES_DB=${{ vars.DB_NAME }}

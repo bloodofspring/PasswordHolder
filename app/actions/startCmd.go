@@ -43,6 +43,22 @@ func (m MainPage) AskPassword(update tgbotapi.Update) error {
 }
 
 func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
+	var userDb models.Users
+	err := database.GetDB().Model(&userDb).Where("id = ?", stepUpdate.Message.From.ID).Select()
+	if err != nil {
+		return err
+	}
+
+	if crypto.HashString(stepUpdate.Message.Text) != userDb.PasswordHash {
+		response := tgbotapi.NewMessage(stepUpdate.Message.Chat.ID, "Неверный пароль.\n\nGo away.")
+		_, err = client.Send(response)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	if stepUpdate.Message.ReplyToMessage != nil {
 		reply := stepUpdate.Message.ReplyToMessage
 		stepParams["password"] = reply.Text

@@ -26,6 +26,7 @@ type MainPage struct {
 }
 
 func (m MainPage) AskPassword(update tgbotapi.Update) error {
+	m.Client.Request(tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID))
 	response := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите пароль или отправьте реплай на сообщение, текст которого содержит пароль:")
 	_, err := m.Client.Send(response)
 	if err != nil {
@@ -48,6 +49,9 @@ func (m MainPage) AskPassword(update tgbotapi.Update) error {
 }
 
 func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
+	client.Request(tgbotapi.NewDeleteMessage(stepUpdate.Message.Chat.ID, stepUpdate.Message.MessageID-1))
+	client.Request(tgbotapi.NewDeleteMessage(stepUpdate.Message.Chat.ID, stepUpdate.Message.MessageID))
+
 	var userDb models.Users
 	err := database.GetDB().Model(&userDb).Where("telegram_id = ?", stepUpdate.Message.From.ID).Select()
 	if err != nil {

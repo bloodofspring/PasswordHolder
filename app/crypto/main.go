@@ -14,7 +14,7 @@ import (
 func HashString(s string) string {
 	h := fnv.New64a()
 	h.Write([]byte(s))
-	return strconv.FormatUint(h.Sum64(), 10)
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 func Encrypt(v string, k string) (string, error) {

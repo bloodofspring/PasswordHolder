@@ -12,3 +12,7 @@ func GetMessage(update tgbotapi.Update) *tgbotapi.Message {
 		return nil
 	}
 }
+
+func StringPtr(s string) *string {
+	return &s
+}

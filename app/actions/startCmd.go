@@ -8,6 +8,7 @@ import (
 	"main/crypto"
 	"main/database"
 	"main/database/models"
+	"main/util"
 	"maps"
 	"math"
 	"time"
@@ -44,13 +45,9 @@ func (m MainPage) AskPassword(update tgbotapi.Update) error {
 
 func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	var userDb models.Users
-	err := database.GetDB().Model(&userDb).Where("id = ?", stepUpdate.Message.From.ID).Select()
+	err := database.GetDB().Model(&userDb).Where("telegram_id = ?", stepUpdate.Message.From.ID).Select()
 	if err != nil {
-		return err
-	}
-
-	if crypto.HashString(stepUpdate.Message.Text) != userDb.PasswordHash {
-		response := tgbotapi.NewMessage(stepUpdate.Message.Chat.ID, "Неверный пароль.\n\nGo away.")
+		response := tgbotapi.NewMessage(stepUpdate.Message.Chat.ID, "Тебе тут не место.\n\nGo away.")
 		_, err = client.Send(response)
 		if err != nil {
 			return err
@@ -64,6 +61,16 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 		stepParams["password"] = reply.Text
 	} else {
 		stepParams["password"] = stepUpdate.Message.Text
+	}
+
+	if crypto.HashString(stepParams["password"].(string)) != userDb.PasswordHash {
+		response := tgbotapi.NewMessage(stepUpdate.Message.Chat.ID, "Неверный пароль.\n\nGo away.")
+		_, err = client.Send(response)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	sessionKey := crypto.GenerateRandomString(8)
@@ -128,7 +135,11 @@ func getPageNoAndCount(offest int, updateFromID int64) (int, int, error) {
 	}
 
 	pageCount = int(math.Ceil(float64(secretsCount) / 3))
-	pageNo = int(math.Floor(float64(offest) / 3)) + 1
+	if pageCount == 0 {
+		pageNo = 0
+	} else {
+		pageNo = int(math.Floor(float64(offest) / 3)) + 1
+	}
 
 	return pageNo, pageCount, nil
 }
@@ -138,6 +149,10 @@ func getPageText(pageNo, pageCount int) string {
 }
 
 func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey string) (tgbotapi.InlineKeyboardMarkup, error) {
+	if pageCount != 0 {
+		offest = offest % pageCount
+	}
+
 	secrets := []*models.Secrets{}
 	err := database.GetDB().Model(&secrets).Where("user_id = ?", updateFromID).Offset(offest).Limit(3).Select()
 	if err != nil {
@@ -159,9 +174,9 @@ func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey s
 			continue
 		}
 
-		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardButtonData(secret.Title, string(jsonData)),
-		))
+		})
 	}
 
 	baseData := map[string]any{
@@ -194,13 +209,19 @@ func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey s
 		return tgbotapi.InlineKeyboardMarkup{}, err
 	}
 
-	navigationBar := [][]tgbotapi.InlineKeyboardButton{{
-		tgbotapi.NewInlineKeyboardButtonData("Назад", string(prevDataJSON)),
-		tgbotapi.NewInlineKeyboardButtonData("+", string(addDataJSON)),
-		tgbotapi.NewInlineKeyboardButtonData("Вперед", string(nextDataJSON)),
-	}}
+	navigationBarRow := []tgbotapi.InlineKeyboardButton{}
+	
+	if pageNo > 1 {
+		navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "Назад", CallbackData: util.StringPtr(string(prevDataJSON))})
+	}
 
-	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, navigationBar...)
+	navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "+", CallbackData: util.StringPtr(string(addDataJSON))})
+
+	if pageNo > 1 {
+		navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "Вперед", CallbackData: util.StringPtr(string(nextDataJSON))})
+	}
+
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, [][]tgbotapi.InlineKeyboardButton{navigationBarRow}...)
 
 	return keyboard, nil
 }

@@ -28,7 +28,7 @@ func connect(debug bool) *tgbotapi.BotAPI {
 	return bot
 }
 
-func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
+func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 	startFilter := func(update tgbotapi.Update) bool { return update.Message.Command() == "start" }
 
 	adminIdStr := os.Getenv("ADMIN_ID")
@@ -41,8 +41,8 @@ func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	mainPageCallQuery := func(update tgbotapi.Update) bool { return strings.HasPrefix(update.CallbackQuery.Data, "MP") }
 
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
-		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: bot}, []handlers.Filter{startFilter, adminFilter}),
-		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
+		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: *bot}, []handlers.Filter{startFilter, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: *bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 	}}
 
 	return act
@@ -61,7 +61,7 @@ func main() {
 	log.Println("Database initialized successfully")
 
 	client := connect(debug)
-	act := getBotActions(*client)
+	act := getBotActions(client)
 
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 60

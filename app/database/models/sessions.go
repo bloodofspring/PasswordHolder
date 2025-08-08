@@ -8,6 +8,6 @@ type Sessions struct {
 	UserID    int64  `pg:"user_id"`
 	User      *Users `pg:"rel:has-one,fk:user_id"`
 
-	Password string `pg:"password"`
+	EncryptedPassword string `pg:"password"`
 	ResetTimeInterval int64 `pg:"reset_time_interval,default:10"`
 }

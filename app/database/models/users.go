@@ -6,4 +6,5 @@ type Users struct {
 	UpdatedAt int64 `pg:",default:extract(epoch from now())"`
 
 	TelegramID int64  `pg:"telegram_id"`
+	PasswordHash string `pg:"password_hash"`
 }

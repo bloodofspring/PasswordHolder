@@ -1,9 +1,15 @@
 package actions
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"main/controllers"
+	"main/crypto"
 	"main/database"
 	"main/database/models"
+	"maps"
+	"math"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -12,17 +18,6 @@ import (
 type MainPage struct {
 	Name   string
 	Client tgbotapi.BotAPI
-}
-
-func (m MainPage) GetSession(update tgbotapi.Update) (*models.Sessions, error) {
-	session := &models.Sessions{}
-	err := database.GetDB().Model(session).Where("user_id = ?", update.Message.From.ID).Select()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return session, nil
 }
 
 func (m MainPage) AskPassword(update tgbotapi.Update) error {
@@ -55,22 +50,177 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 		stepParams["password"] = stepUpdate.Message.Text
 	}
 
-	newSession := &models.Sessions{
-		UserID:    stepUpdate.Message.From.ID,
-		Password:  stepParams["password"].(string),
-	}
-
-	_, err := database.GetDB().Model(newSession).Insert()
+	sessionKey := crypto.GenerateRandomString(8)
+	encryptedPassword, err := crypto.Encrypt(stepParams["password"].(string), sessionKey)
 	if err != nil {
 		return err
 	}
 
-	return MainPage{Name: "main-page-from-step-func", Client: client}.MainPage(stepUpdate, newSession)
+	newSession := &models.Sessions{
+		UserID:    stepUpdate.Message.From.ID,
+		EncryptedPassword: encryptedPassword,
+	}
+
+	_, err = database.GetDB().Model(newSession).Insert()
+	if err != nil {
+		return err
+	}
+
+	return MainPage{Name: "main-page-from-step-func", Client: client}.MainPage(stepUpdate, newSession, sessionKey, false)
 }
 
-func (m MainPage) MainPage(update tgbotapi.Update, session *models.Sessions) error {
-	response := tgbotapi.NewMessage(update.Message.Chat.ID, "Главная страница")
-	_, err := m.Client.Send(response)
+func updateSession(session *models.Sessions) error {
+	session.UpdatedAt = time.Now().Unix()
+	_, err := database.GetDB().Model(session).WherePK().Update()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, updateFromID *int64) (error) {
+	var data map[string]any
+	err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
+	if err != nil {
+		return err
+	}
+
+	*sessionKey = data["session_key"].(string)
+	*offest = data["offest"].(int)
+	*updateFromID = update.CallbackQuery.From.ID
+
+	switch data["action"].(string) {
+	case "next":
+		*offest += 3
+	case "prev":
+		*offest -= 3
+	case "add":
+		log.Println("add") // TODO: Implement
+	case "secret":
+		log.Println("secret") // TODO: Implement
+	}
+
+	return nil
+}
+
+func getPageNoAndCount(offest int, updateFromID int64) (int, int, error) {
+	var pageNo, pageCount int
+	secretsCount, err := database.GetDB().Model(&models.Secrets{}).Where("user_id = ?", updateFromID).Count()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	pageCount = int(math.Ceil(float64(secretsCount) / 3))
+	pageNo = int(math.Floor(float64(offest) / 3)) + 1
+
+	return pageNo, pageCount, nil
+}
+
+func getPageText(pageNo, pageCount int) string {
+	return fmt.Sprintf("Менеджер паролей Крови Весны\nСтраница: %d // %d\n\nВыберите сервис для просмотра пароля:", pageNo, pageCount)
+}
+
+func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey string) (tgbotapi.InlineKeyboardMarkup, error) {
+	secrets := []*models.Secrets{}
+	err := database.GetDB().Model(&secrets).Where("user_id = ?", updateFromID).Offset(offest).Limit(3).Select()
+	if err != nil {
+		return tgbotapi.InlineKeyboardMarkup{}, err
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup()
+	for _, secret := range secrets {
+		data := map[string]any{
+			"action": "secret",
+			"secret_id": secret.ID,
+			"session_key": sessionKey,
+			"offest": offest,
+		}
+
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(secret.Title, string(jsonData)),
+		))
+	}
+
+	baseData := map[string]any{
+		"session_key": sessionKey,
+		"offest": offest,
+	}
+
+	var (
+		nextData = map[string]any{"action": "next"}
+		addData = map[string]any{"action": "add"}
+		prevData = map[string]any{"action": "prev"}
+	)
+
+	maps.Copy(nextData, baseData)
+	maps.Copy(addData, baseData)
+	maps.Copy(prevData, baseData)
+
+	nextDataJSON, err := json.Marshal(nextData)
+	if err != nil {
+		return tgbotapi.InlineKeyboardMarkup{}, err
+	}
+
+	addDataJSON, err := json.Marshal(addData)
+	if err != nil {
+		return tgbotapi.InlineKeyboardMarkup{}, err
+	}
+
+	prevDataJSON, err := json.Marshal(prevData)
+	if err != nil {
+		return tgbotapi.InlineKeyboardMarkup{}, err
+	}
+
+	navigationBar := [][]tgbotapi.InlineKeyboardButton{{
+		tgbotapi.NewInlineKeyboardButtonData("Назад", string(prevDataJSON)),
+		tgbotapi.NewInlineKeyboardButtonData("+", string(addDataJSON)),
+		tgbotapi.NewInlineKeyboardButtonData("Вперед", string(nextDataJSON)),
+	}}
+
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, navigationBar...)
+
+	return keyboard, nil
+}
+
+func (m MainPage) MainPage(update tgbotapi.Update, session *models.Sessions, newSessionKey string, isCallback bool) error {
+	updateSession(session)
+
+	var offest int
+	var sessionKey string
+	var updateFromID int64
+
+	if isCallback {
+		err := getCallbackParams(update, &offest, &sessionKey, &updateFromID)
+		if err != nil {
+			return err
+		}
+	} else {
+		offest = 0
+		sessionKey = newSessionKey
+		updateFromID = update.Message.From.ID
+	}
+
+	pageNo, pageCount, err := getPageNoAndCount(offest, updateFromID)
+	if err != nil {
+		return err
+	}
+	text := getPageText(pageNo, pageCount)
+
+	keyboard, err := getKeyboard(pageNo, pageCount, offest, updateFromID, sessionKey)
+	if err != nil {
+		return err
+	}
+
+	response := tgbotapi.NewMessage(update.Message.Chat.ID, text)
+	response.ReplyMarkup = keyboard
+	_, err = m.Client.Send(response)
 	if err != nil {
 		return err
 	}
@@ -79,18 +229,22 @@ func (m MainPage) MainPage(update tgbotapi.Update, session *models.Sessions) err
 }
 
 func (m MainPage) main(update tgbotapi.Update) error {
-	session, err := m.GetSession(update)
-	if err != nil {
+	if update.CallbackQuery != nil {
+		session := &models.Sessions{}
+		err := database.GetDB().Model(session).Where("user_id = ?", update.CallbackQuery.From.ID).Select()
+
+		if err != nil {
+			m.Client.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
+			
+			return nil
+		}
+
+		return m.MainPage(update, session, "", true)
+	} else if update.Message != nil {
 		return m.AskPassword(update)
 	}
 
-	session.UpdatedAt = time.Now().Unix()
-	_, err = database.GetDB().Model(session).WherePK().Update()
-	if err != nil {
-		return err
-	}
-
-	return m.MainPage(update, session)
+	return nil
 }
 
 func (m MainPage) Run(update tgbotapi.Update) error {

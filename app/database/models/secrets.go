@@ -11,4 +11,6 @@ type Secrets struct {
 	Title     string `pg:"title"`
 	Login     string `pg:"login"`
 	Password  string `pg:"password"`
+	SiteLink  string `pg:"site_link"`
+	Description string `pg:"description"`
 }

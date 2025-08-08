@@ -119,9 +119,9 @@ func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, 
 	case "prev":
 		*offest -= 3
 	case "add":
-		log.Println("add") // TODO: Implement
+		log.Println("add") // TODO: Implement in other action
 	case "secret":
-		log.Println("secret") // TODO: Implement
+		log.Println("secret") // TODO: Implement in other action
 	}
 
 	return nil

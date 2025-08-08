@@ -16,6 +16,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+const (
+	BUTTONS_PER_PAGE = 6
+)
+
 type MainPage struct {
 	Name   string
 	Client tgbotapi.BotAPI
@@ -80,7 +84,7 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 	}
 
 	newSession := &models.Sessions{
-		UserID:    stepUpdate.Message.From.ID,
+		UserID:            stepUpdate.Message.From.ID,
 		EncryptedPassword: encryptedPassword,
 	}
 
@@ -102,25 +106,25 @@ func updateSession(session *models.Sessions) error {
 	return nil
 }
 
-func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, updateFromID *int64) (error) {
+func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, updateFromID *int64) error {
 	var data map[string]any
 	err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
 	if err != nil {
 		return err
 	}
 
-	*sessionKey = data["session_key"].(string)
-	*offest = data["offest"].(int)
+	*sessionKey = data["k"].(string)
+	*offest = int(data["o"].(float64))
 	*updateFromID = update.CallbackQuery.From.ID
 
-	switch data["action"].(string) {
-	case "next":
-		*offest += 3
-	case "prev":
-		*offest -= 3
-	case "add":
+	switch data["a"].(string) {
+	case "n": // next
+		*offest += BUTTONS_PER_PAGE
+	case "p": // prev
+		*offest -= BUTTONS_PER_PAGE
+	case "a": // add
 		log.Println("add") // TODO: Implement in other action
-	case "secret":
+	case "s": // secret
 		log.Println("secret") // TODO: Implement in other action
 	}
 
@@ -134,11 +138,11 @@ func getPageNoAndCount(offest int, updateFromID int64) (int, int, error) {
 		return 0, 0, err
 	}
 
-	pageCount = int(math.Ceil(float64(secretsCount) / 3))
+	pageCount = int(math.Ceil(float64(secretsCount) / float64(BUTTONS_PER_PAGE)))
 	if pageCount == 0 {
 		pageNo = 0
 	} else {
-		pageNo = int(math.Floor(float64(offest) / 3)) + 1
+		pageNo = int(math.Floor(float64(offest)/float64(BUTTONS_PER_PAGE))) + 1
 	}
 
 	return pageNo, pageCount, nil
@@ -148,46 +152,61 @@ func getPageText(pageNo, pageCount int) string {
 	return fmt.Sprintf("Менеджер паролей Крови Весны\nСтраница: %d // %d\n\nВыберите сервис для просмотра пароля:", pageNo, pageCount)
 }
 
-func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey string) (tgbotapi.InlineKeyboardMarkup, error) {
-	if pageCount != 0 {
-		offest = offest % pageCount
+func getKeyboard(pageCount, offest int, updateFromID int64, sessionKey string) (tgbotapi.InlineKeyboardMarkup, error) {
+	if pageCount != 0 && offest > 0{
+		offest = offest % (pageCount * BUTTONS_PER_PAGE)
+	} else if offest < 0 {
+		offest = pageCount * BUTTONS_PER_PAGE + offest
 	}
 
 	secrets := []*models.Secrets{}
-	err := database.GetDB().Model(&secrets).Where("user_id = ?", updateFromID).Offset(offest).Limit(3).Select()
+	err := database.GetDB().Model(&secrets).Where("user_id = ?", updateFromID).Offset(offest).Limit(BUTTONS_PER_PAGE).Select()
 	if err != nil {
 		return tgbotapi.InlineKeyboardMarkup{}, err
 	}
 
 	keyboard := tgbotapi.NewInlineKeyboardMarkup()
-	for _, secret := range secrets {
-		data := map[string]any{
-			"action": "secret",
-			"secret_id": secret.ID,
-			"session_key": sessionKey,
-			"offest": offest,
+	for i := 0; i < len(secrets); i += 2 {
+		baseData := map[string]any{
+			"a": "s",        // action: secret
+			"k": sessionKey, // session_key
+			"o": offest,     // offest
 		}
 
-		jsonData, err := json.Marshal(data)
+		firstSecret := map[string]any{"i": secrets[i].ID}
+		maps.Copy(firstSecret, baseData)
+		firstSecretJSON, err := json.Marshal(firstSecret)
 		if err != nil {
-			log.Println(err)
-			continue
+			return tgbotapi.InlineKeyboardMarkup{}, err
 		}
 
-		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardButtonData(secret.Title, string(jsonData)),
-		})
+
+		buttonRow := []tgbotapi.InlineKeyboardButton{}
+		buttonRow = append(buttonRow, tgbotapi.InlineKeyboardButton{Text: secrets[i].Title, CallbackData: util.StringPtr(string(firstSecretJSON))})
+
+		if i+1 < len(secrets) {
+			secondSecret := map[string]any{"i": secrets[i+1].ID}
+			maps.Copy(secondSecret, baseData)
+			secondSecretJSON, err := json.Marshal(secondSecret)
+			if err != nil {
+				return tgbotapi.InlineKeyboardMarkup{}, err
+			}
+
+			buttonRow = append(buttonRow, tgbotapi.InlineKeyboardButton{Text: secrets[i+1].Title, CallbackData: util.StringPtr(string(secondSecretJSON))})
+		}
+
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, buttonRow)
 	}
 
 	baseData := map[string]any{
-		"session_key": sessionKey,
-		"offest": offest,
+		"k": sessionKey,
+		"o": offest,
 	}
 
 	var (
-		nextData = map[string]any{"action": "next"}
-		addData = map[string]any{"action": "add"}
-		prevData = map[string]any{"action": "prev"}
+		nextData = map[string]any{"a": "n"} // action: next
+		addData  = map[string]any{"a": "a"} // action: add
+		prevData = map[string]any{"a": "p"} // action: prev
 	)
 
 	maps.Copy(nextData, baseData)
@@ -210,14 +229,14 @@ func getKeyboard(pageNo, pageCount, offest int, updateFromID int64, sessionKey s
 	}
 
 	navigationBarRow := []tgbotapi.InlineKeyboardButton{}
-	
-	if pageNo > 1 {
+
+	if pageCount > 1 {
 		navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "Назад", CallbackData: util.StringPtr(string(prevDataJSON))})
 	}
 
 	navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "+", CallbackData: util.StringPtr(string(addDataJSON))})
 
-	if pageNo > 1 {
+	if pageCount > 1 {
 		navigationBarRow = append(navigationBarRow, tgbotapi.InlineKeyboardButton{Text: "Вперед", CallbackData: util.StringPtr(string(nextDataJSON))})
 	}
 
@@ -250,19 +269,24 @@ func (m MainPage) MainPage(update tgbotapi.Update, session *models.Sessions, new
 	}
 	text := getPageText(pageNo, pageCount)
 
-	keyboard, err := getKeyboard(pageNo, pageCount, offest, updateFromID, sessionKey)
+	keyboard, err := getKeyboard(pageCount, offest, updateFromID, sessionKey)
 	if err != nil {
 		return err
 	}
 
-	response := tgbotapi.NewMessage(update.Message.Chat.ID, text)
-	response.ReplyMarkup = keyboard
-	_, err = m.Client.Send(response)
-	if err != nil {
-		return err
+	if !isCallback {
+		response := tgbotapi.NewMessage(updateFromID, text)
+		response.ReplyMarkup = keyboard
+
+		_, err = m.Client.Send(response)
+	} else {
+		response := tgbotapi.NewEditMessageText(updateFromID, update.CallbackQuery.Message.MessageID, text)
+		response.ReplyMarkup = &keyboard
+
+		_, err = m.Client.Request(response)
 	}
 
-	return nil
+	return err
 }
 
 func (m MainPage) main(update tgbotapi.Update) error {
@@ -272,7 +296,7 @@ func (m MainPage) main(update tgbotapi.Update) error {
 
 		if err != nil {
 			m.Client.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
-			
+
 			return nil
 		}
 

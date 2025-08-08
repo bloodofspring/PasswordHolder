@@ -43,7 +43,7 @@ func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 		var data map[string]any
 		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
 
-		return err == nil && slices.Contains([]string{"next", "prev"}, data["action"].(string))
+		return err == nil && slices.Contains([]string{"n", "p"}, data["a"].(string))
 		// Add and Secret actions will be handled in other actions
 	}
 

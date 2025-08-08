@@ -100,3 +100,16 @@ func random(size int) []byte {
 	rand.Read(r)
 	return r
 }
+
+func GenerateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789?_!-"
+	result := make([]byte, length)
+	charsetLength := len(charset)
+
+	randomBytes := random(length)
+	for i := range randomBytes {
+		result[i] = charset[int(randomBytes[i])%charsetLength]
+	}
+
+	return string(result)
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"main/actions"
 	"main/controllers"
@@ -8,8 +9,8 @@ import (
 	"main/handlers"
 	"main/util"
 	"os"
+	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -28,7 +29,7 @@ func connect(debug bool) *tgbotapi.BotAPI {
 	return bot
 }
 
-func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
+func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 	startFilter := func(update tgbotapi.Update) bool { return update.Message.Command() == "start" }
 
 	adminIdStr := os.Getenv("ADMIN_ID")
@@ -38,11 +39,17 @@ func getBotActions(bot tgbotapi.BotAPI) handlers.ActiveHandlers {
 	}
 	adminFilter := func(update tgbotapi.Update) bool { return util.GetMessage(update).Chat.ID == adminId }
 
-	mainPageCallQuery := func(update tgbotapi.Update) bool { return strings.HasPrefix(update.CallbackQuery.Data, "MP") }
+	mainPageCallQuery := func(update tgbotapi.Update) bool {
+		var data map[string]any
+		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
+
+		return err == nil && slices.Contains([]string{"n", "p"}, data["a"].(string))
+		// Add and Secret actions will be handled in other actions
+	}
 
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
-		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: bot}, []handlers.Filter{startFilter, adminFilter}),
-		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
+		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: *bot}, []handlers.Filter{startFilter, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: *bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 	}}
 
 	return act
@@ -61,7 +68,7 @@ func main() {
 	log.Println("Database initialized successfully")
 
 	client := connect(debug)
-	act := getBotActions(*client)
+	act := getBotActions(client)
 
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 60

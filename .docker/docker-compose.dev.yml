@@ -14,7 +14,7 @@ services:
       - ../app:/app # Для hot reload и локальной разработки
     ports:
       - "6060:6060"
-    command: ["go", "run", "run.go"]
+    command: sh -c "go build -o /tmp/bot && /tmp/bot"
 
   db:
     image: postgres:15-alpine
@@ -23,7 +23,7 @@ services:
     env_file:
       - .env # Переменные для базы также через .env
     ports:
-      - "${OUTSIDE_POSTGRES_PORT}:5432"
+      - "${PUBLIC_POSTGRES_PORT}:5432"
     volumes:
       - ../pgdata:/var/lib/postgresql/data
 

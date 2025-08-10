@@ -318,6 +318,6 @@ func (m MainPage) Run(update tgbotapi.Update) error {
 	return err
 }
 
-func (e MainPage) GetName() string {
-	return e.Name
+func (m MainPage) GetName() string {
+	return m.Name
 }

@@ -3,7 +3,6 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"main/controllers"
 	"main/crypto"
 	"main/database"
@@ -90,6 +89,7 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 	newSession := &models.Sessions{
 		UserID:            stepUpdate.Message.From.ID,
 		EncryptedPassword: encryptedPassword,
+		ResetTimeInterval: 600,
 	}
 
 	_, err = database.GetDB().Model(newSession).Insert()
@@ -126,10 +126,10 @@ func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, 
 		*offest += BUTTONS_PER_PAGE
 	case "p": // prev
 		*offest -= BUTTONS_PER_PAGE
-	case "a": // add
-		log.Println("add") // TODO: Implement in other action
-	case "s": // secret
-		log.Println("secret") // TODO: Implement in other action
+	// case "a": // add
+	// 	log.Println("add") // TODO: Implement in other action
+	// case "s": // secret
+	// 	log.Println("secret") // TODO: Implement in other action
 	}
 
 	return nil

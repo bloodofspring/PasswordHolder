@@ -62,7 +62,6 @@ func (n NextStepManager) RunUpdates(update tgbotapi.Update, client tgbotapi.BotA
 	}
 
 	key := NextStepKey{ChatID: update.Message.Chat.ID, UserID: update.Message.From.ID}
-
 	action, ok := n.nextStepActions[key]
 
 	if !ok {
@@ -73,9 +72,11 @@ func (n NextStepManager) RunUpdates(update tgbotapi.Update, client tgbotapi.BotA
 		return ErrMessageIsCommand
 	}
 
+	err := action.Func(client, update, action.Params)
+
 	GlobalNextStepManager.RemoveNextStepAction(key, client, false)
 
-	return action.Func(client, update, action.Params)
+	return err
 }
 
 func (n *NextStepManager) ClearOldSteps(client tgbotapi.BotAPI) (int, error) {

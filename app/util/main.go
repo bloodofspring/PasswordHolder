@@ -7,7 +7,10 @@ func GetMessage(update tgbotapi.Update) *tgbotapi.Message {
 	case update.Message != nil:
 		return update.Message
 	case update.CallbackQuery != nil:
-		return update.CallbackQuery.Message
+		message := update.CallbackQuery.Message
+		message.From = update.CallbackQuery.From
+		
+		return message
 	default:
 		return nil
 	}

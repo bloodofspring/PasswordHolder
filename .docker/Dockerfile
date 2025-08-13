@@ -22,7 +22,12 @@ ENTRYPOINT ["/app/bot"]
 # --- Development image ---
 FROM golang:1.23-alpine AS dev
 WORKDIR /app
+
+# Установка CompileDaemon для hot reload
+RUN go install github.com/githubnemo/CompileDaemon@latest
+
 COPY ./go.mod ./go.sum ./
 RUN go mod download
 COPY ./ .
-CMD ["go", "run", "run.go"] 
+
+CMD ["CompileDaemon", "-graceful-kill", "--build", "go build -o ./tmp/app", "--command", "./tmp/app"]

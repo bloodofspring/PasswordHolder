@@ -306,6 +306,8 @@ func (m MainPage) main(update tgbotapi.Update) error {
 
 		return m.MainPage(update, session, "", true)
 	} else if update.Message != nil {
+		database.GetDB().Model(&models.Sessions{}).Where("user_id = ?", update.Message.From.ID).Delete()
+
 		return m.AskPassword(update)
 	}
 

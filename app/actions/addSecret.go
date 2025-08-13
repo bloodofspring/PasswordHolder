@@ -15,13 +15,13 @@ import (
 )
 
 type AddSecret struct {
-	Name string
+	Name   string
 	Client tgbotapi.BotAPI
 }
 
 // baseForm отображает форму ввода с кнопкой отмены и регистрирует следующий шаг.
-func baseForm(client tgbotapi.BotAPI, update tgbotapi.Update, params map[string]any, formText, CancelMessage string, formHandler controllers.NextStepFunc, cancelCallbackData string) error {
-	client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(update).Chat.ID, util.GetMessage(update).MessageID - 1))
+func baseForm(client tgbotapi.BotAPI, update tgbotapi.Update, params map[string]any, formText, CancelMessage string, formHandler controllers.NextStepFunc, cancelCallbackData string, isLastStep bool) error {
+	client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(update).Chat.ID, util.GetMessage(update).MessageID-1))
 	client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(update).Chat.ID, util.GetMessage(update).MessageID))
 
 	msg := tgbotapi.NewMessage(util.GetMessage(update).Chat.ID, formText)
@@ -45,6 +45,7 @@ func baseForm(client tgbotapi.BotAPI, update tgbotapi.Update, params map[string]
 		Params:        params,
 		CreatedAtTS:   time.Now().Unix(),
 		CancelMessage: CancelMessage,
+		IsLastStep:    isLastStep,
 	}
 
 	controllers.GetNextStepManager().RegisterNextStepAction(stepKey, stepAction)
@@ -85,13 +86,14 @@ func (a AddSecret) StartPoll(update tgbotapi.Update) error {
 		"Создание секрета отменено",
 		getTitle,
 		stepParams["on_cancel"].(string),
-	) 
+		false,
+	)
 }
 
 func getSession(stepParams map[string]any) (models.Sessions, error) {
 	session := &models.Sessions{}
 	err := database.GetDB().Model(session).Where("user_id = ?", util.GetMessage(stepParams["update"].(tgbotapi.Update)).From.ID).Select()
-	
+
 	return *session, err
 }
 
@@ -127,6 +129,7 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 		"Создание секрета отменено",
 		getLogin,
 		stepParams["on_cancel"].(string),
+		false,
 	)
 }
 
@@ -150,6 +153,7 @@ func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 		"Создание секрета отменено",
 		getPassword,
 		stepParams["on_cancel"].(string),
+		false,
 	)
 }
 
@@ -173,6 +177,7 @@ func getPassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 		"Создание секрета отменено",
 		getSiteLink,
 		stepParams["on_cancel"].(string),
+		false,
 	)
 }
 
@@ -193,6 +198,7 @@ func getSiteLink(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 		"Создание секрета отменено",
 		getDescriptionAndFinishPoll,
 		stepParams["on_cancel"].(string),
+		true,
 	)
 }
 
@@ -215,7 +221,7 @@ func getDescriptionAndFinishPoll(client tgbotapi.BotAPI, stepUpdate tgbotapi.Upd
 		return err
 	}
 
-	client.Request(tgbotapi.NewDeleteMessage(stepUpdate.Message.Chat.ID, stepUpdate.Message.MessageID - 1))
+	client.Request(tgbotapi.NewDeleteMessage(stepUpdate.Message.Chat.ID, stepUpdate.Message.MessageID-1))
 	client.Request(tgbotapi.NewDeleteMessage(stepUpdate.Message.Chat.ID, stepUpdate.Message.MessageID))
 
 	callbackData := map[string]any{
@@ -236,7 +242,7 @@ func getDescriptionAndFinishPoll(client tgbotapi.BotAPI, stepUpdate tgbotapi.Upd
 	}
 
 	_, err = client.Request(response)
-	
+
 	return err
 }
 
@@ -249,5 +255,3 @@ func (a AddSecret) Run(update tgbotapi.Update) error {
 func (a AddSecret) GetName() string {
 	return a.Name
 }
-
-

@@ -24,10 +24,11 @@ type NextStepKey struct {
 type NextStepFunc func(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error
 
 type NextStepAction struct {
-	Func        NextStepFunc
-	Params      map[string]any
-	CreatedAtTS int64
+	Func          NextStepFunc
+	Params        map[string]any
+	CreatedAtTS   int64
 	CancelMessage string
+	IsLastStep    bool // Флаг, указывающий, является ли этот шаг последним в цепочке
 }
 
 type NextStepManager struct {
@@ -45,23 +46,34 @@ func GetNextStepManager() *NextStepManager {
 }
 
 func (n *NextStepManager) RegisterNextStepAction(stepKey NextStepKey, action NextStepAction) {
+	log.Printf("RegisterNextStepAction: Registering new action for ChatID=%d, UserID=%d\n", stepKey.ChatID, stepKey.UserID)
+	log.Printf("RegisterNextStepAction: Action details: CreatedAtTS=%d, CancelMessage=%s\n", action.CreatedAtTS, action.CancelMessage)
 	n.nextStepActions[stepKey] = action
+	log.Printf("RegisterNextStepAction: Current actions map after registration: %+v\n", n.nextStepActions)
 }
 
-func (n NextStepManager) RemoveNextStepAction(stepKey NextStepKey, bot tgbotapi.BotAPI, sendCancelMessage bool) {
+func (n *NextStepManager) RemoveNextStepAction(stepKey NextStepKey, bot tgbotapi.BotAPI, sendCancelMessage bool) {
+	log.Printf("RemoveNextStepAction: Removing action for ChatID=%d, UserID=%d\n", stepKey.ChatID, stepKey.UserID)
+	log.Printf("RemoveNextStepAction: Current actions before removal: %+v\n", n.nextStepActions)
+
 	if sendCancelMessage && n.nextStepActions[stepKey].CancelMessage != "" {
+		log.Printf("RemoveNextStepAction: Sending cancel message: %s\n", n.nextStepActions[stepKey].CancelMessage)
 		bot.Send(tgbotapi.NewMessage(stepKey.ChatID, n.nextStepActions[stepKey].CancelMessage))
 	}
 
 	delete(n.nextStepActions, stepKey)
+	log.Printf("RemoveNextStepAction: Actions after removal: %+v\n", n.nextStepActions)
 }
 
-func (n NextStepManager) RunUpdates(update tgbotapi.Update, client tgbotapi.BotAPI) error {
+func (n *NextStepManager) RunUpdates(update tgbotapi.Update, client tgbotapi.BotAPI) error {
 	if update.Message == nil {
+		log.Println("RunUpdates: Message is nil")
 		return nil
 	}
 
 	key := NextStepKey{ChatID: update.Message.Chat.ID, UserID: update.Message.From.ID}
+	log.Printf("RunUpdates: Processing key ChatID=%d, UserID=%d\n", key.ChatID, key.UserID)
+	log.Printf("RunUpdates: Current actions map: %+v\n", n.nextStepActions)
 	action, ok := n.nextStepActions[key]
 
 	if !ok {
@@ -74,7 +86,10 @@ func (n NextStepManager) RunUpdates(update tgbotapi.Update, client tgbotapi.BotA
 
 	err := action.Func(client, update, action.Params)
 
-	GlobalNextStepManager.RemoveNextStepAction(key, client, false)
+	// Удаляем шаг только если он последний в цепочке
+	if action.IsLastStep {
+		GlobalNextStepManager.RemoveNextStepAction(key, client, false)
+	}
 
 	return err
 }
@@ -95,17 +110,10 @@ func (n *NextStepManager) ClearOldSteps(client tgbotapi.BotAPI) (int, error) {
 
 func RunStepUpdates(update tgbotapi.Update, stepManager *NextStepManager, client tgbotapi.BotAPI) {
 	err := stepManager.RunUpdates(update, client)
-	if err != nil {
-		return
-	}
 
-	stepsCleaned, err := stepManager.ClearOldSteps(client)
 	if err != nil {
-		log.Println("error clearing old steps: ", err)
-		return
+		log.Println("error running step updates: ", err)
 	}
-
-	log.Println("stepsCleaned: ", stepsCleaned)
 }
 
 // ClearNextStepForUser очищает следующий шаг для пользователя
@@ -137,4 +145,3 @@ func ClearNextStepForUser(update tgbotapi.Update, client *tgbotapi.BotAPI, sendC
 		UserID: user.ID,
 	}, *client, sendCancelMessage)
 }
-

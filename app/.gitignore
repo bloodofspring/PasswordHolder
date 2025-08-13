@@ -1,2 +1,10 @@
-.idea
+# Air
+tmp/
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
 .env

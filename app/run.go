@@ -11,13 +11,27 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
 )
 
+var (
+	currentBot *tgbotapi.BotAPI
+	botMutex   sync.Mutex
+)
+
 func connect(debug bool) *tgbotapi.BotAPI {
+	botMutex.Lock()
+	defer botMutex.Unlock()
+
+	// Если есть предыдущий клиент, останавливаем его
+	if currentBot != nil {
+		currentBot.StopReceivingUpdates()
+	}
+
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("API_KEY"))
 	if err != nil {
 		panic(err)
@@ -26,6 +40,7 @@ func connect(debug bool) *tgbotapi.BotAPI {
 	bot.Debug = debug
 	log.Printf("Successfully authorized on account @%s", bot.Self.UserName)
 
+	currentBot = bot
 	return bot
 }
 
@@ -43,13 +58,21 @@ func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 		var data map[string]any
 		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
 
-		return err == nil && slices.Contains([]string{"n", "p"}, data["a"].(string))
+		return err == nil && slices.Contains([]string{"n", "p", "c"}, data["a"].(string))
 		// Add and Secret actions will be handled in other actions
+	}
+
+	addSecretCallQuery := func(update tgbotapi.Update) bool {
+		var data map[string]any
+		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
+
+		return err == nil && slices.Contains([]string{"a"}, data["a"].(string))
 	}
 
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
 		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: *bot}, []handlers.Filter{startFilter, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: *bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.AddSecret{Name: "add-secret-call-query", Client: *bot}, []handlers.Filter{addSecretCallQuery, adminFilter}),
 	}}
 
 	return act
@@ -87,7 +110,7 @@ func main() {
 
 	updates := client.GetUpdatesChan(updateConfig)
 	for update := range updates {
-		_ = act.HandleAll(update)
 		controllers.RunStepUpdates(update, stepManager, *client)
+		_ = act.HandleAll(update)
 	}
 }

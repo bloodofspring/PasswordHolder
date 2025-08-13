@@ -3,7 +3,6 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"main/controllers"
 	"main/crypto"
 	"main/database"
@@ -90,6 +89,7 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 	newSession := &models.Sessions{
 		UserID:            stepUpdate.Message.From.ID,
 		EncryptedPassword: encryptedPassword,
+		ResetTimeInterval: 600,
 	}
 
 	_, err = database.GetDB().Model(newSession).Insert()
@@ -126,10 +126,10 @@ func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, 
 		*offest += BUTTONS_PER_PAGE
 	case "p": // prev
 		*offest -= BUTTONS_PER_PAGE
-	case "a": // add
-		log.Println("add") // TODO: Implement in other action
-	case "s": // secret
-		log.Println("secret") // TODO: Implement in other action
+	// case "a": // add
+	// 	log.Println("add") // TODO: Implement in other action
+	// case "s": // secret
+	// 	log.Println("secret") // TODO: Implement in other action
 	}
 
 	return nil
@@ -306,6 +306,8 @@ func (m MainPage) main(update tgbotapi.Update) error {
 
 		return m.MainPage(update, session, "", true)
 	} else if update.Message != nil {
+		database.GetDB().Model(&models.Sessions{}).Where("user_id = ?", update.Message.From.ID).Delete()
+
 		return m.AskPassword(update)
 	}
 
@@ -318,6 +320,6 @@ func (m MainPage) Run(update tgbotapi.Update) error {
 	return err
 }
 
-func (e MainPage) GetName() string {
-	return e.Name
+func (m MainPage) GetName() string {
+	return m.Name
 }

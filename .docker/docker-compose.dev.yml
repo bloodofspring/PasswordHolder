@@ -12,9 +12,9 @@ services:
       - db
     volumes:
       - ../app:/app # Для hot reload и локальной разработки
+      - ../app/tmp:/app/tmp # Для бинарных файлов
     ports:
       - "6060:6060"
-    command: sh -c "go build -o /tmp/bot && /tmp/bot"
 
   db:
     image: postgres:15-alpine

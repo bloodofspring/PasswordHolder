@@ -91,21 +91,8 @@ func (a AddSecret) StartPoll(update tgbotapi.Update) error {
 	)
 }
 
-func getSession(stepParams map[string]any) (models.Sessions, error) {
-	session := &models.Sessions{}
-	err := database.GetDB().Model(session).Where("user_id = ?", util.GetMessage(stepParams["update"].(tgbotapi.Update)).From.ID).Select()
-
-	return *session, err
-}
-
-func hasActiveSession(stepParams map[string]any) bool {
-	_, err := getSession(stepParams)
-	
-	return err == nil
-}
-
-func finishPollWithoutSession(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) bool {
-	if hasActiveSession(stepParams) {
+func finishPollWithoutSession(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update) bool {
+	if util.HasActiveSession(stepUpdate) {
 		return false
 	}
 
@@ -118,7 +105,7 @@ func finishPollWithoutSession(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update
 }
 
 func encryptDataWithSessionPassword(stepParams map[string]any, data string) (string, error) {
-	session, err := getSession(stepParams)
+	session, err := util.GetSession(stepParams["update"].(tgbotapi.Update))
 	if err != nil {
 		return "", err
 	}
@@ -141,7 +128,7 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 	stepParams["update"] = stepUpdate
 	stepParams["new_secret"] = secret
 
-	if finishPollWithoutSession(client, stepUpdate, stepParams) {
+	if finishPollWithoutSession(client, stepUpdate) {
 		return nil
 	}
 
@@ -159,7 +146,7 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 
 func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {	
 	stepParams["update"] = stepUpdate
-	if finishPollWithoutSession(client, stepUpdate, stepParams) {
+	if finishPollWithoutSession(client, stepUpdate) {
 		return nil
 	}
 
@@ -189,7 +176,7 @@ func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 
 func getPassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
-	if finishPollWithoutSession(client, stepUpdate, stepParams) {
+	if finishPollWithoutSession(client, stepUpdate) {
 		return nil
 	}
 
@@ -219,7 +206,7 @@ func getPassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 
 func getSiteLink(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
-	if finishPollWithoutSession(client, stepUpdate, stepParams) {
+	if finishPollWithoutSession(client, stepUpdate) {
 		return nil
 	}
 
@@ -243,7 +230,7 @@ func getSiteLink(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 
 func getDescriptionAndFinishPoll(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
-	if finishPollWithoutSession(client, stepUpdate, stepParams) {
+	if finishPollWithoutSession(client, stepUpdate) {
 		return nil
 	}
 

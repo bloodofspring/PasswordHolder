@@ -296,8 +296,7 @@ func (m MainPage) MainPage(update tgbotapi.Update, session *models.Sessions, new
 
 func (m MainPage) main(update tgbotapi.Update) error {
 	if update.CallbackQuery != nil {
-		session := &models.Sessions{}
-		err := database.GetDB().Model(session).Where("user_id = ?", update.CallbackQuery.From.ID).Select()
+		session, err := util.GetSession(update)
 
 		if err != nil {
 			m.Client.Send(tgbotapi.NewDeleteMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID))
@@ -305,7 +304,7 @@ func (m MainPage) main(update tgbotapi.Update) error {
 			return nil
 		}
 
-		return m.MainPage(update, session, "", true)
+		return m.MainPage(update, &session, "", true)
 	} else if update.Message != nil {
 		database.GetDB().Model(&models.Sessions{}).Where("user_id = ?", update.Message.From.ID).Delete()
 

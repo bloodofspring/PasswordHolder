@@ -127,10 +127,6 @@ func getCallbackParams(update tgbotapi.Update, offest *int, sessionKey *string, 
 		*offest += BUTTONS_PER_PAGE
 	case "p": // prev
 		*offest -= BUTTONS_PER_PAGE
-	// case "a": // add
-	// 	log.Println("add") // TODO: Implement in other action
-	// case "s": // secret
-	// 	log.Println("secret") // TODO: Implement in other action
 	}
 
 	return nil

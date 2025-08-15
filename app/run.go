@@ -44,6 +44,17 @@ func connect(debug bool) *tgbotapi.BotAPI {
 	return bot
 }
 
+func InActionList(update tgbotapi.Update, allowedActions []string) bool {
+	if update.CallbackQuery == nil {
+		return false
+	}
+
+	var data map[string]any
+	err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
+
+	return err == nil && slices.Contains(allowedActions, data["a"].(string))
+}
+
 func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 	startFilter := func(update tgbotapi.Update) bool { return update.Message.Command() == "start" }
 
@@ -55,24 +66,22 @@ func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 	adminFilter := func(update tgbotapi.Update) bool { return util.GetMessage(update).Chat.ID == adminId }
 
 	mainPageCallQuery := func(update tgbotapi.Update) bool {
-		var data map[string]any
-		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
-
-		return err == nil && slices.Contains([]string{"n", "p", "c"}, data["a"].(string))
-		// Add and Secret actions will be handled in other actions
+		return InActionList(update, []string{"n", "p", "c"})
 	}
 
 	addSecretCallQuery := func(update tgbotapi.Update) bool {
-		var data map[string]any
-		err := json.Unmarshal([]byte(update.CallbackQuery.Data), &data)
+		return InActionList(update, []string{"a"})
+	}
 
-		return err == nil && slices.Contains([]string{"a"}, data["a"].(string))
+	viewSecretCallQuery := func(update tgbotapi.Update) bool {
+		return InActionList(update, []string{"s"})
 	}
 
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
 		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: *bot}, []handlers.Filter{startFilter, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: *bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.AddSecret{Name: "add-secret-call-query", Client: *bot}, []handlers.Filter{addSecretCallQuery, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.ViewSecret{Name: "view-secret-call-query", Client: *bot}, []handlers.Filter{viewSecretCallQuery, adminFilter}),
 	}}
 
 	return act

@@ -17,6 +17,7 @@ import (
 
 const (
 	BUTTONS_PER_PAGE = 6
+	SESSION_RESET_TIME_INTERVAL = 10 // 600
 )
 
 type MainPage struct {
@@ -89,7 +90,7 @@ func HandlePassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepPara
 	newSession := &models.Sessions{
 		UserID:            stepUpdate.Message.From.ID,
 		EncryptedPassword: encryptedPassword,
-		ResetTimeInterval: 600,
+		ResetTimeInterval: SESSION_RESET_TIME_INTERVAL,
 	}
 
 	_, err = database.GetDB().Model(newSession).Insert()

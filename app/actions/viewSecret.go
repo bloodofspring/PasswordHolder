@@ -107,13 +107,21 @@ func (v ViewSecret) formatSecretMessage(secret *models.Secrets) (string, []tgbot
 	return messageText, entities
 }
 
-func (v ViewSecret) createKeyboard(offset int, sessionKey string) tgbotapi.InlineKeyboardMarkup {
+func (v ViewSecret) createKeyboard(data viewSecretCallbackData) tgbotapi.InlineKeyboardMarkup {
 	backData := viewSecretCallbackData{
 		Action:     "c",
-		SessionKey: sessionKey,
-		Offset:     offset,
+		SessionKey: data.SessionKey,
+		Offset:     data.Offset,
 	}
 	backDataJSON, _ := json.Marshal(backData)
+
+	deleteData := viewSecretCallbackData{
+		Action:     "d",
+		SessionKey: data.SessionKey,
+		Offset:     data.Offset,
+		SecretID:   data.SecretID,
+	}
+	deleteDataJSON, _ := json.Marshal(deleteData)
 
 	return tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
@@ -124,7 +132,7 @@ func (v ViewSecret) createKeyboard(offset int, sessionKey string) tgbotapi.Inlin
 				},
 				{
 					Text:         "Удалить",
-					CallbackData: util.StringPtr("-"),
+					CallbackData: util.StringPtr(string(deleteDataJSON)),
 				},
 			},
 		},
@@ -190,7 +198,7 @@ func (v ViewSecret) Run(update tgbotapi.Update) error {
 	messageText, entities := v.formatSecretMessage(&secret)
 
 	// Создаем клавиатуру
-	keyboard := v.createKeyboard(data.Offset, data.SessionKey)
+	keyboard := v.createKeyboard(data)
 
 	// Обновляем сообщение
 	editMsg := tgbotapi.NewEditMessageTextAndMarkup(

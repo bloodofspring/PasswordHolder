@@ -3,6 +3,7 @@ package actions
 import (
 	"encoding/json"
 	"log"
+
 	// "log"
 	"main/controllers"
 	"main/crypto"
@@ -107,16 +108,30 @@ func finishPollWithoutSession(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update
 func encryptDataWithSessionPassword(stepParams map[string]any, data string) (string, error) {
 	session, err := util.GetSession(stepParams["update"].(tgbotapi.Update))
 	if err != nil {
+		log.Printf("Failed to get session: %v", err)
 		return "", err
 	}
 
-	decryptedPassword, err := crypto.Decrypt(session.EncryptedPassword, stepParams["session_key"].(string))
+	sessionKey, ok := stepParams["session_key"].(string)
+	if !ok {
+		log.Printf("Invalid session key type: %T", stepParams["session_key"])
+		return "", err
+	}
+
+	if session.EncryptedPassword == "" {
+		log.Printf("Empty encrypted password in session")
+		return "", err
+	}
+
+	decryptedPassword, err := crypto.Decrypt(session.EncryptedPassword, sessionKey)
 	if err != nil {
+		log.Printf("Failed to decrypt session password: %v", err)
 		return "", err
 	}
 
 	encrypted, err := crypto.Encrypt(data, decryptedPassword)
 	if err != nil {
+		log.Printf("Failed to encrypt data: %v", err)
 		return "", err
 	}
 
@@ -144,7 +159,7 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 	)
 }
 
-func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {	
+func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
 	if finishPollWithoutSession(client, stepUpdate) {
 		return nil

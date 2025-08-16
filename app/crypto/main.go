@@ -85,10 +85,22 @@ func pad(value []byte) []byte {
 
 func unpad(value []byte) []byte {
 	length := len(value)
-	pdd := value[length-1:]
-	before := length - int(pdd[0])
+	if length == 0 {
+		return value
+	}
 
-	if bytes.Equal(value[before:], bytes.Repeat(pdd, int(pdd[0]))) {
+	pdd := value[length-1:]
+	paddingLength := int(pdd[0])
+
+	// Проверяем, что padding имеет допустимое значение
+	if paddingLength == 0 || paddingLength > aes.BlockSize || paddingLength > length {
+		return value
+	}
+
+	before := length - paddingLength
+
+	// Проверяем корректность padding
+	if before >= 0 && bytes.Equal(value[before:], bytes.Repeat(pdd, paddingLength)) {
 		return value[:before]
 	}
 

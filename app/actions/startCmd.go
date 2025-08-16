@@ -17,7 +17,7 @@ import (
 
 const (
 	BUTTONS_PER_PAGE = 6
-	SESSION_RESET_TIME_INTERVAL = 10 // 600
+	SESSION_RESET_TIME_INTERVAL = 1000 // 600
 )
 
 type MainPage struct {

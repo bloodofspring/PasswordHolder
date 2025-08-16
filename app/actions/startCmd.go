@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	BUTTONS_PER_PAGE = 6
+	BUTTONS_PER_PAGE            = 6
 	SESSION_RESET_TIME_INTERVAL = 1000 // 600
 )
 
@@ -143,7 +143,17 @@ func getPageNoAndCount(offest int, updateFromID int64) (int, int, error) {
 	if pageCount == 0 {
 		pageNo = 0
 	} else {
-		pageNo = int(math.Floor(float64(offest)/float64(BUTTONS_PER_PAGE))) + 1
+		// Ensure offset is within bounds before calculating page number
+		totalItems := pageCount * BUTTONS_PER_PAGE
+		if offest >= totalItems {
+			offest = 0
+		} else if offest < 0 {
+			offest = totalItems - BUTTONS_PER_PAGE
+			if offest < 0 {
+				offest = 0
+			}
+		}
+		pageNo = (offest / BUTTONS_PER_PAGE) + 1
 	}
 
 	return pageNo, pageCount, nil
@@ -154,10 +164,20 @@ func getPageText(pageNo, pageCount int) string {
 }
 
 func getKeyboard(pageCount, offest int, updateFromID int64, sessionKey string) (tgbotapi.InlineKeyboardMarkup, error) {
-	if pageCount != 0 && offest > 0{
-		offest = offest % (pageCount * BUTTONS_PER_PAGE)
-	} else if offest < 0 {
-		offest = pageCount * BUTTONS_PER_PAGE + offest
+	totalItems := pageCount * BUTTONS_PER_PAGE
+
+	if totalItems > 0 {
+		// Ensure offset stays within bounds
+		if offest >= totalItems {
+			offest = 0
+		} else if offest < 0 {
+			offest = totalItems - BUTTONS_PER_PAGE
+			if offest < 0 {
+				offest = 0
+			}
+		}
+	} else {
+		offest = 0
 	}
 
 	secrets := []*models.Secrets{}
@@ -180,7 +200,6 @@ func getKeyboard(pageCount, offest int, updateFromID int64, sessionKey string) (
 		if err != nil {
 			return tgbotapi.InlineKeyboardMarkup{}, err
 		}
-
 
 		buttonRow := []tgbotapi.InlineKeyboardButton{}
 		buttonRow = append(buttonRow, tgbotapi.InlineKeyboardButton{Text: secrets[i].Title, CallbackData: util.StringPtr(string(firstSecretJSON))})

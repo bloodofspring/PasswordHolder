@@ -69,6 +69,19 @@ func EntityMachine(text string, keywords []keywordObj) []tgbotapi.MessageEntity 
 			}
 			if match {
 				offset = i
+
+				for _, e := range entities {
+					if offset >= e.Offset && offset + len(keywordUTF16) <= e.Offset + e.Length {
+						offset = -1
+
+						break
+					}
+				}
+
+				if offset == -1 {
+					continue
+				}
+
 				break
 			}
 		}
@@ -88,32 +101,56 @@ func EntityMachine(text string, keywords []keywordObj) []tgbotapi.MessageEntity 
 }
 
 func (v ViewSecret) formatSecretMessage(secret *models.Secrets) (string, []tgbotapi.MessageEntity) {
-	messageText := fmt.Sprintf("=== %s ===\n\nЛогин: %s\nПароль: %s\nГде использовать: %s\n\nОписание:\n%s",
+	messageText := fmt.Sprintf("=== %s ===\n\nЛогин: %s\nПароль: %s",
 		secret.Title,
 		secret.Login,
 		secret.Password,
-		secret.SiteLink,
-		secret.Description,
 	)
 
-	entities := EntityMachine(messageText, []keywordObj{
+	dataForEntityMachine := []keywordObj{
 		{Keyword: fmt.Sprintf("=== %s ===", secret.Title), EntityName: "bold"},
 		{Keyword: secret.Login, EntityName: "code"},
 		{Keyword: secret.Password, EntityName: "code"},
-		{Keyword: "Описание:", EntityName: "italic"},
-		{Keyword: secret.Description, EntityName: "blockquote"},
-	})
+	}
+
+	if secret.SiteLink != "" {
+		messageText += fmt.Sprintf("\nГде использовать: %s", secret.SiteLink)
+		dataForEntityMachine = append(dataForEntityMachine, keywordObj{Keyword: fmt.Sprintf("Где использовать: %s", secret.SiteLink), EntityName: "null"})
+	}
+
+	if secret.Description != "" {
+		messageText += fmt.Sprintf("\n\nОписание:\n%s", secret.Description)
+		dataForEntityMachine = append(dataForEntityMachine, keywordObj{Keyword: "Описание:", EntityName: "italic"})
+		dataForEntityMachine = append(dataForEntityMachine, keywordObj{Keyword: secret.Description, EntityName: "blockquote"})
+	}
+
+	entities := EntityMachine(messageText, dataForEntityMachine)
+
+	for i, e := range entities {
+		if e.Type == "null" {
+			entities = append(entities[:i], entities[i+1:]...)
+			i--
+		}
+	}
 
 	return messageText, entities
 }
 
-func (v ViewSecret) createKeyboard(offset int, sessionKey string) tgbotapi.InlineKeyboardMarkup {
+func (v ViewSecret) createKeyboard(data viewSecretCallbackData) tgbotapi.InlineKeyboardMarkup {
 	backData := viewSecretCallbackData{
 		Action:     "c",
-		SessionKey: sessionKey,
-		Offset:     offset,
+		SessionKey: data.SessionKey,
+		Offset:     data.Offset,
 	}
 	backDataJSON, _ := json.Marshal(backData)
+
+	deleteData := viewSecretCallbackData{
+		Action:     "d",
+		SessionKey: data.SessionKey,
+		Offset:     data.Offset,
+		SecretID:   data.SecretID,
+	}
+	deleteDataJSON, _ := json.Marshal(deleteData)
 
 	return tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
@@ -124,7 +161,7 @@ func (v ViewSecret) createKeyboard(offset int, sessionKey string) tgbotapi.Inlin
 				},
 				{
 					Text:         "Удалить",
-					CallbackData: util.StringPtr("-"),
+					CallbackData: util.StringPtr(string(deleteDataJSON)),
 				},
 			},
 		},
@@ -190,7 +227,7 @@ func (v ViewSecret) Run(update tgbotapi.Update) error {
 	messageText, entities := v.formatSecretMessage(&secret)
 
 	// Создаем клавиатуру
-	keyboard := v.createKeyboard(data.Offset, data.SessionKey)
+	keyboard := v.createKeyboard(data)
 
 	// Обновляем сообщение
 	editMsg := tgbotapi.NewEditMessageTextAndMarkup(

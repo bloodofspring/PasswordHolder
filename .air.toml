@@ -49,4 +49,4 @@ tmp_dir = "tmp"
   clean_on_exit = false  # Не очищать временные файлы при выходе
 
 [screen]
-  clear_on_rebuild = true  # Не очищать экран при пересборке
+  clear_on_rebuild = true 

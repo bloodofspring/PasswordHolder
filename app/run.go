@@ -77,11 +77,16 @@ func getBotActions(bot *tgbotapi.BotAPI) handlers.ActiveHandlers {
 		return InActionList(update, []string{"s"})
 	}
 
+	deleteSecretCallQuery := func(update tgbotapi.Update) bool {
+		return InActionList(update, []string{"d"})
+	}
+
 	act := handlers.ActiveHandlers{Handlers: []handlers.Handler{
 		handlers.CommandHandler.Product(actions.MainPage{Name: "main-page-cmd", Client: *bot}, []handlers.Filter{startFilter, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.MainPage{Name: "main-page-call-query", Client: *bot}, []handlers.Filter{mainPageCallQuery, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.AddSecret{Name: "add-secret-call-query", Client: *bot}, []handlers.Filter{addSecretCallQuery, adminFilter}),
 		handlers.CallbackQueryHandler.Product(actions.ViewSecret{Name: "view-secret-call-query", Client: *bot}, []handlers.Filter{viewSecretCallQuery, adminFilter}),
+		handlers.CallbackQueryHandler.Product(actions.DeleteSecret{Name: "delete-secret-call-query", Client: *bot}, []handlers.Filter{deleteSecretCallQuery, adminFilter}),
 	}}
 
 	return act

@@ -2,6 +2,8 @@ package actions
 
 import (
 	"encoding/json"
+	"log"
+
 	// "log"
 	"main/controllers"
 	"main/crypto"
@@ -90,26 +92,46 @@ func (a AddSecret) StartPoll(update tgbotapi.Update) error {
 	)
 }
 
-func getSession(stepParams map[string]any) (models.Sessions, error) {
-	session := &models.Sessions{}
-	err := database.GetDB().Model(session).Where("user_id = ?", util.GetMessage(stepParams["update"].(tgbotapi.Update)).From.ID).Select()
+func finishPollWithoutSession(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update) bool {
+	if util.HasActiveSession(stepUpdate) {
+		return false
+	}
 
-	return *session, err
+	log.Println("deleting messages...")
+
+	client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID-1))
+	client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID))
+
+	return true
 }
 
 func encryptDataWithSessionPassword(stepParams map[string]any, data string) (string, error) {
-	session, err := getSession(stepParams)
+	session, err := util.GetSession(stepParams["update"].(tgbotapi.Update))
 	if err != nil {
+		log.Printf("Failed to get session: %v", err)
 		return "", err
 	}
 
-	decryptedPassword, err := crypto.Decrypt(session.EncryptedPassword, stepParams["session_key"].(string))
+	sessionKey, ok := stepParams["session_key"].(string)
+	if !ok {
+		log.Printf("Invalid session key type: %T", stepParams["session_key"])
+		return "", err
+	}
+
+	if session.EncryptedPassword == "" {
+		log.Printf("Empty encrypted password in session")
+		return "", err
+	}
+
+	decryptedPassword, err := crypto.Decrypt(session.EncryptedPassword, sessionKey)
 	if err != nil {
+		log.Printf("Failed to decrypt session password: %v", err)
 		return "", err
 	}
 
 	encrypted, err := crypto.Encrypt(data, decryptedPassword)
 	if err != nil {
+		log.Printf("Failed to encrypt data: %v", err)
 		return "", err
 	}
 
@@ -120,6 +142,10 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 	secret := &models.Secrets{Title: stepUpdate.Message.Text}
 	stepParams["update"] = stepUpdate
 	stepParams["new_secret"] = secret
+
+	if finishPollWithoutSession(client, stepUpdate) {
+		return nil
+	}
 
 	return baseForm(
 		stepParams["client"].(tgbotapi.BotAPI),
@@ -135,9 +161,15 @@ func getTitle(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 
 func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
+	if finishPollWithoutSession(client, stepUpdate) {
+		return nil
+	}
 
 	encryptedLogin, err := encryptDataWithSessionPassword(stepParams, stepUpdate.Message.Text)
 	if err != nil {
+		client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID-1))
+		client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID))
+
 		return err
 	}
 
@@ -159,9 +191,15 @@ func getLogin(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map
 
 func getPassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
+	if finishPollWithoutSession(client, stepUpdate) {
+		return nil
+	}
 
 	encryptedPassword, err := encryptDataWithSessionPassword(stepParams, stepUpdate.Message.Text)
 	if err != nil {
+		client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID-1))
+		client.Request(tgbotapi.NewDeleteMessage(util.GetMessage(stepUpdate).Chat.ID, util.GetMessage(stepUpdate).MessageID))
+
 		return err
 	}
 
@@ -183,6 +221,9 @@ func getPassword(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 
 func getSiteLink(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
+	if finishPollWithoutSession(client, stepUpdate) {
+		return nil
+	}
 
 	if stepUpdate.Message.Text != "-" {
 		editedSecret := stepParams["new_secret"].(*models.Secrets)
@@ -204,6 +245,9 @@ func getSiteLink(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams 
 
 func getDescriptionAndFinishPoll(client tgbotapi.BotAPI, stepUpdate tgbotapi.Update, stepParams map[string]any) error {
 	stepParams["update"] = stepUpdate
+	if finishPollWithoutSession(client, stepUpdate) {
+		return nil
+	}
 
 	if stepUpdate.Message.Text != "-" {
 		editedSecret := stepParams["new_secret"].(*models.Secrets)

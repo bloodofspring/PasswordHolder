@@ -1,0 +1,52 @@
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  # Команда сборки
+  cmd = "go build -o ./tmp/main ."
+  # Путь к бинарному файлу
+  bin = "./tmp/main"
+  # Задержка перед пересборкой
+  delay = 1000
+  # Исключаем ненужные директории
+  exclude_dir = [
+    "assets",
+    "tmp",
+    "vendor",
+    "testdata",
+    "pgdata"
+  ]
+  # Исключаем тестовые файлы
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  # Расширения файлов для отслеживания
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  # Директории для отслеживания (пусто = все директории)
+  include_dir = []
+  # Файл для логов ошибок сборки
+  log = "build-errors.log"
+  # Остановка при ошибках
+  stop_on_error = true
+  # Задержка перед отправкой сигнала kill
+  kill_delay = "0s"
+  # Отправка сигнала interrupt перед kill
+  send_interrupt = false
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  time = true    # Добавляем временные метки в логи
+
+[misc]
+  clean_on_exit = false  # Не очищать временные файлы при выходе
+
+[screen]
+  clear_on_rebuild = true  # Не очищать экран при пересборке
